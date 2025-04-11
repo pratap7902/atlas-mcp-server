@@ -26,22 +26,23 @@ client = Client(
 
 
 @mcp.tool()
-def run_clickhouse_query(query: Annotated[str, "A SQL query to run on the ClickHouse database."]) -> str:
-    """Execute a raw SQL query against ClickHouse and return the result."""
+def run_clickhouse_query(prompt: Annotated[str, "A SQL query to run on the ClickHouse database."]) -> str:
+    """
+        Execute a SQL query and return formatted results which supposts only SELECT queries.
+        Update and Create or Delete Queries should be rejected right away 
+    """
     try:
-        # Execute the query using clickhouse_driver's Client
-        result = client.execute(query)
+        result = client.execute(prompt)
         
         if not result:
-            return "✅ Query ran successfully but returned no rows."
+            return "No results returned"
 
-        # Convert result to string
         output = []
         
-        # Get column names from a separate query for SELECT queries
-        if query.strip().upper().startswith("SELECT"):
-            query_with_limit = query + " LIMIT 0"  # Get structure without data
-            columns = [col[0] for col in client.execute(f"DESC ({query_with_limit})")]
+        # Get column names for SELECT queries
+        if prompt.strip().upper().startswith("SELECT"):
+            prompt_with_limit = prompt + " LIMIT 0"
+            columns = [col[0] for col in client.execute(f"DESC ({prompt_with_limit})")]
             output.append(" | ".join(columns))
             output.append("-" * 50)
         
@@ -49,9 +50,11 @@ def run_clickhouse_query(query: Annotated[str, "A SQL query to run on the ClickH
         for row in result:
             output.append(" | ".join(str(item) for item in row))
 
-        return "\n".join(output)
+        formatted_result = "\n".join(output)
+        return formatted_result if formatted_result else "Query executed successfully but returned no data"
+    
     except Exception as e:
-        return f"❌ Error running query: {str(e)}"
+        return f"Error: {str(e)}"
 
 
 @mcp.tool()
@@ -82,6 +85,15 @@ def describe_table(
         return "\n".join(output)
     except Exception as e:
         return f"❌ Error describing table: {str(e)}"
+
+
+# @mcp.tool()
+# def format_table_output(content: Annotated[str, "The tabular data converted to human friendly text with proper spacing and listing."]) -> str:
+#     """The tabular data converted to human friendly text with proper spacing and listing."""
+#     try:
+#         return content
+#     except Exception as e:
+#         return f"Error: {str(e)}"
 
 
 if __name__ == "__main__":
